@@ -114,14 +114,27 @@ def _remove_date(service: DateCounterService) -> None:  # Elimina una fecha
     print("Fechas disponibles:")  # Encabezado
     _print_items(items, today)  # Muestra la tabla
     print("")  # Espacio visual
-    name = input("Nombre a eliminar: ").strip()  # Pide el nombre
-    if not name:  # Si el nombre esta vacio
+    selection = input("Nombre o N a eliminar: ").strip()  # Pide nombre o numero
+    if not selection:  # Si la entrada esta vacia
         print("Nombre invalido.")  # Mensaje de error
         return  # Sale de la funcion
 
-    removed = service.remove_date(name)  # Intenta eliminar
+    selected_name = selection  # Usa la entrada como nombre
+    if selection.isdigit():  # Si es un numero
+        index = int(selection)  # Convierte a entero
+        if index < 1 or index > len(items):  # Verifica rango
+            print("Numero invalido.")  # Mensaje de error
+            return  # Sale de la funcion
+        selected_name = items[index - 1].name  # Toma el nombre por indice
+
+    confirm = input(f"Seguro que quieres eliminar '{selected_name}'? (S/N): ").strip()  # Pide confirmacion
+    if confirm.lower() != "s":  # Si no confirma
+        print("Operacion cancelada.")  # Mensaje de cancelacion
+        return  # Sale de la funcion
+
+    removed = service.remove_date(selected_name)  # Intenta eliminar
     if removed:  # Si se elimino
-        print("Fecha eliminada.")  # Mensaje ok
+        print(f"Fecha eliminada: {selected_name}")  # Mensaje ok
     else:  # Si no se encontro
         print("No se encontro la fecha.")  # Mensaje de error
 
