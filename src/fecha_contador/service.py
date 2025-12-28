@@ -3,7 +3,7 @@
 from __future__ import annotations  # Permite tipos adelantados
 
 from dataclasses import dataclass  # Herramienta para clases simples
-from datetime import date  # Tipo de fecha
+from datetime import date, datetime, timedelta  # Tipos de fecha, hora y diferencia
 from typing import List, Optional  # Tipos para listas y opcionales
 
 from .models import ImportantDate  # Modelo principal
@@ -17,10 +17,10 @@ class DateAlreadyExistsError(Exception):  # Error de duplicado
 
 @dataclass  # Genera init y otros metodos
 class UpcomingDate:  # Contenedor de resultado
-    """Agrupa una fecha y su diferencia en dias."""  # Resume la clase
+    """Agrupa una fecha y su diferencia de tiempo."""  # Resume la clase
 
     item: ImportantDate  # La fecha registrada
-    days_delta: int  # Dias de diferencia con hoy
+    delta: timedelta  # Diferencia de tiempo con el momento de comparacion
 
 
 class DateCounterService:  # Servicio central
@@ -53,26 +53,58 @@ class DateCounterService:  # Servicio central
         self.storage.save(remaining)  # Guarda la lista nueva
         return True  # Si se elimino
 
-    def next_date(self, today: Optional[date] = None) -> Optional[UpcomingDate]:  # Busca la mas cercana
-        """Devuelve la fecha mas cercana a hoy."""  # Resume la funcion
-        if today is None:  # Si no se paso una fecha
-            today = date.today()  # Usa hoy
+    def get_groups(self) -> List[str]:  # Lista todos los grupos
+        """Devuelve una lista unica de nombres de grupos."""
+        items = self.storage.load()  # Carga existentes
+        groups = {item.group for item in items}  # Extrae grupos unicos
+        return sorted(list(groups))  # Devuelve ordenados
 
-        upcoming_list = self._calculate_deltas(today)  # Calcula diferencias
+    def move_to_group(self, name: str, group_name: str) -> bool:  # Cambia grupo
+        """Mueve una fecha a un nuevo grupo."""
+        items = self.storage.load()  # Carga existentes
+        found = False  # Bandera de encontrado
+        new_items = []  # Nueva lista
+
+        for item in items:  # Recorre cada item
+            if item.name.lower() == name.lower():  # Busca coincidencia
+                # Re-crea el item con el nuevo grupo (es inmutable)
+                updated = ImportantDate(
+                    name=item.name,
+                    date=item.date,
+                    description=item.description,
+                    group=group_name,
+                    created_at=item.created_at,
+                )
+                new_items.append(updated)  # Agrega el actualizado
+                found = True  # Marca como encontrado
+            else:
+                new_items.append(item)  # Agrega el original
+
+        if found:  # Si hubo cambios
+            self.storage.save(new_items)  # Guarda cambios
+        return found  # Avisa si se encontro
+
+    def next_date(self, now: Optional[datetime] = None) -> Optional[UpcomingDate]:  # Busca la mas cercana
+        """Devuelve la fecha mas cercana al momento dado."""  # Resume la funcion
+        if now is None:  # Si no se paso una fecha
+            now = datetime.now()  # Usa el momento actual
+
+        upcoming_list = self._calculate_deltas(now)  # Calcula diferencias
         if not upcoming_list:  # Si no hay fechas
             return None  # No hay resultado
 
-        return min(upcoming_list, key=lambda u: abs(u.days_delta))  # Elige la mas cercana
+        # Compara por el valor absoluto del delta total en segundos
+        return min(upcoming_list, key=lambda u: abs(u.delta.total_seconds()))
 
     def _exists(self, name: str, items: List[ImportantDate]) -> bool:  # Comprueba duplicado
         """Verifica si un nombre ya existe sin importar mayusculas."""  # Resume la funcion
         target = name.lower()  # Normaliza el nombre
         return any(existing.name.lower() == target for existing in items)  # Busca coincidencia
 
-    def _calculate_deltas(self, today: date) -> List[UpcomingDate]:  # Calcula diferencias
-        """Calcula la diferencia de dias para todas las fechas."""  # Resume la funcion
+    def _calculate_deltas(self, now: datetime) -> List[UpcomingDate]:  # Calcula diferencias
+        """Calcula la diferencia de tiempo para todas las fechas."""  # Resume la funcion
         items = self.storage.load()  # Carga existentes
         return [  # Construye la lista
-            UpcomingDate(item=item, days_delta=(item.date - today).days)  # Calcula diferencia
+            UpcomingDate(item=item, delta=(item.date - now))  # Calcula diferencia
             for item in items  # Recorre cada item
         ]  # Cierra la lista

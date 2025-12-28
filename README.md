@@ -26,7 +26,13 @@ El codigo se organiza de forma modular para facilitar su mantenimiento:
 ### Requisitos
 
 - Python 3.8 o superior.
-- No se requieren dependencias externas.
+- Dependencias externas: `questionary` y `rich` para la interfaz TUI.
+
+### Instalar dependencias (TUI)
+
+```powershell
+python -m pip install questionary rich
+```
 
 ### Entorno Virtual (Opcional pero recomendado)
 
@@ -61,7 +67,7 @@ python run_cli.py add --name "Cumpleaños" --date "2025-10-25" --description "Di
 python run_cli.py list
 ```
 
-#### Listar solo fechas futuras
+#### Listar fechas pasadas y futuras
 ```powershell
 python run_cli.py list --all
 ```
@@ -75,3 +81,14 @@ python run_cli.py next
 ```powershell
 python run_cli.py remove --name "Cumpleaños"
 ```
+
+## Comportamiento del CLI
+
+- `list`: por defecto solo muestra fechas futuras; con `--all` incluye fechas pasadas.
+- `next`: muestra la fecha más cercana a hoy (pasada o futura), con el cálculo de días.
+- `add`: guarda una fecha con `name`, `date` y `description` opcional.
+- `remove`: elimina una fecha por nombre.
+
+## Datos y persistencia
+
+- El archivo de datos se guarda en `data/important_dates.json` relativo al directorio donde se ejecuta el comando.

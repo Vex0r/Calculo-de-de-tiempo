@@ -7,6 +7,7 @@ from datetime import date, datetime  # Tipos de fecha y hora
 from typing import Any, Dict, Optional  # Tipos para anotaciones
 
 DATE_FORMAT = "%Y-%m-%d"  # Formato de fecha esperado
+DATETIME_FORMAT = "%Y-%m-%d %H:%M"  # Formato de fecha y hora esperado
 
 
 def parse_date(value: str) -> date:  # Convierte texto a fecha
@@ -17,13 +18,26 @@ def parse_date(value: str) -> date:  # Convierte texto a fecha
         raise ValueError(f"Formato invalido '{value}'. Se espera YYYY-MM-DD.") from exc  # Mensaje claro
 
 
+def parse_datetime(value: str) -> datetime:  # Convierte texto a datetime
+    """Convierte un string a datetime, soportando solo fecha o fecha y hora."""
+    try:
+        return datetime.strptime(value, DATETIME_FORMAT)
+    except ValueError:
+        try:
+            # Intenta parsear como fecha y asume medianoche
+            return datetime.combine(parse_date(value), datetime.min.time())
+        except ValueError as exc:
+            raise ValueError(f"Formato invalido '{value}'. Se espera YYYY-MM-DD o YYYY-MM-DD HH:MM.") from exc
+
+
 @dataclass(frozen=True)  # Hace la clase inmutable
 class ImportantDate:  # Modelo principal de fecha
     """Representa una fecha importante con datos basicos."""  # Resume la clase
 
     name: str  # Nombre de la fecha
-    date: date  # Fecha del evento
+    date: datetime  # Fecha y hora del evento
     description: Optional[str] = None  # Texto opcional
+    group: str = "General"  # Grupo de la fecha
     created_at: date = field(default_factory=date.today)  # Fecha de creacion
 
     def __post_init__(self) -> None:  # Valida datos al crear
@@ -35,8 +49,9 @@ class ImportantDate:  # Modelo principal de fecha
         """Devuelve un dict listo para guardar en JSON."""  # Resume la salida
         return {  # Construye el dict
             "name": self.name,  # Guarda el nombre
-            "date": self.date.strftime(DATE_FORMAT),  # Guarda la fecha
+            "date": self.date.strftime(DATETIME_FORMAT),  # Guarda la fecha y hora
             "description": self.description,  # Guarda la descripcion
+            "group": self.group,  # Guarda el grupo
             "created_at": self.created_at.strftime(DATE_FORMAT),  # Guarda la creacion
         }  # Cierra el dict
 
@@ -45,7 +60,8 @@ class ImportantDate:  # Modelo principal de fecha
         """Crea una instancia valida desde un dict."""  # Resume el objetivo
         return ImportantDate(  # Crea el objeto
             name=payload["name"],  # Toma el nombre
-            date=parse_date(payload["date"]),  # Toma la fecha
+            date=parse_datetime(payload["date"]),  # Toma la fecha y hora
             description=payload.get("description"),  # Toma la descripcion
+            group=payload.get("group", "General"),  # Toma el grupo o usa default
             created_at=parse_date(payload["created_at"]) if payload.get("created_at") else date.today(),  # Toma creacion
         )  # Cierra la creacion

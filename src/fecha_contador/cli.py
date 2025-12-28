@@ -3,11 +3,11 @@
 from __future__ import annotations  # Permite tipos adelantados
 
 import argparse  # Maneja argumentos de consola
-from datetime import date  # Tipo de fecha
+from datetime import datetime  # Tipo de fecha y hora
 from pathlib import Path  # Maneja rutas
 from typing import List, Optional  # Tipos de ayuda
 
-from .models import ImportantDate, parse_date  # Importa modelos
+from .models import ImportantDate, parse_datetime  # Importa modelos y parser
 from .service import DateCounterService, DateAlreadyExistsError  # Importa logica
 from .storage import JsonStorage  # Importa almacenamiento
 
@@ -21,8 +21,9 @@ def build_parser() -> argparse.ArgumentParser:  # Crea el parser
 
     add_parser = subparsers.add_parser("add", help="Agrega una fecha")  # Comando add
     add_parser.add_argument("--name", required=True, help="Nombre de la fecha")  # Nombre
-    add_parser.add_argument("--date", required=True, help="Fecha YYYY-MM-DD")  # Fecha
+    add_parser.add_argument("--date", required=True, help="Fecha YYYY-MM-DD [HH:MM]")  # Fecha
     add_parser.add_argument("--description", help="Descripcion opcional")  # Descripcion
+    add_parser.add_argument("--group", default="General", help="Grupo opcional")  # Grupo
 
     list_parser = subparsers.add_parser("list", help="Lista las fechas")  # Comando list
     list_parser.add_argument("--all", action="store_true", help="Incluye pasadas")  # Opcion all
@@ -40,11 +41,12 @@ def handle_add(service: DateCounterService, args: argparse.Namespace) -> int:  #
     try:  # Inicia bloque seguro
         item = ImportantDate(  # Crea el objeto
             name=args.name,  # Usa el nombre
-            date=parse_date(args.date),  # Convierte la fecha
+            date=parse_datetime(args.date),  # Convierte la fecha y hora
             description=args.description,  # Usa la descripcion
+            group=args.group,  # Usa el grupo
         )  # Cierra el objeto
         service.add_date(item)  # Guarda en almacenamiento
-        print(f"Fecha agregada exitosamente: {item.name}")  # Mensaje al usuario
+        print(f"Fecha agregada exitosamente: {item.name} en grupo '{item.group}'")  # Mensaje al usuario
         return 0  # Indica exito
     except ValueError as exc:  # Captura errores de formato
         print(f"Error de validacion: {exc}")  # Muestra el problema
@@ -57,18 +59,18 @@ def handle_add(service: DateCounterService, args: argparse.Namespace) -> int:  #
 def handle_list(service: DateCounterService, args: argparse.Namespace) -> int:  # Maneja list
     """Muestra las fechas guardadas."""  # Resume la funcion
     items = service.list_dates()  # Carga las fechas
-    today = date.today()  # Toma el dia actual
+    now = datetime.now()  # Toma el momento actual
     if not args.all:  # Si no pidio todas
-        items = [item for item in items if item.date >= today]  # Deja solo futuras
+        items = [item for item in items if item.date >= now]  # Deja solo futuras
     if not items:  # Si no hay datos
         print("No hay fechas para mostrar.")  # Aviso simple
         return 0  # Termina sin error
 
     print(f"Listado de fechas ({len(items)}):")  # Encabezado
     for item in items:  # Recorre cada fecha
-        days_delta = (item.date - today).days  # Calcula diferencia
-        status = "faltan" if days_delta >= 0 else "pasaron"  # Decide texto
-        print(f" - {item.name:<20} | {item.date} | {status} {abs(days_delta)} dias")  # Muestra fila
+        delta = item.date - now  # Calcula diferencia
+        status = "faltan" if delta.total_seconds() >= 0 else "pasaron"  # Decide texto
+        print(f" - {item.name:<20} | {item.date} | {item.group:<10} | {status} {abs(delta.days)} dias")  # Muestra fila
         if item.description:  # Si hay descripcion
             print(f"   Nota: {item.description}")  # Muestra nota
     return 0  # Indica exito
@@ -92,11 +94,11 @@ def handle_next(service: DateCounterService, args: argparse.Namespace) -> int:  
         return 0  # Termina sin error
 
     item = upcoming.item  # Toma el item
-    days_delta = upcoming.days_delta  # Toma la diferencia
-    status = "faltan" if days_delta >= 0 else "pasaron"  # Texto de estado
+    delta = upcoming.delta  # Toma la diferencia de tiempo
+    status = "faltan" if delta.total_seconds() >= 0 else "pasaron"  # Texto de estado
     print("Fecha mas cercana:")  # Encabezado
-    print(f"   {item.name} ({item.date})")  # Muestra nombre y fecha
-    print(f"   {status.upper()} {abs(days_delta)} DIAS")  # Muestra resumen
+    print(f"   {item.name} ({item.date}) [Grupo: {item.group}]")  # Muestra nombre, fecha y grupo
+    print(f"   {status.upper()} {abs(delta.days)} DIAS")  # Muestra resumen
     if item.description:  # Si hay descripcion
         print(f"   --- {item.description} ---")  # Muestra descripcion
     return 0  # Indica exito
