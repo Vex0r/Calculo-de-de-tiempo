@@ -31,6 +31,36 @@ def parse_datetime(value: str) -> datetime:  # Convierte texto a datetime
 
 
 @dataclass(frozen=True)  # Hace la clase inmutable
+class Category:  # Categoria de fechas
+    """Representa una categoria con un color asociado."""  # Resume la clase
+
+    name: str  # Nombre de la categoria
+    color: str = "cyan"  # Color para mostrar en UI
+
+    def __post_init__(self) -> None:  # Valida datos al crear
+        """Valida los datos despues de crear la instancia."""
+        if not self.name or not self.name.strip():
+            raise ValueError("El nombre de la categoria no puede estar vacio.")
+        if not self.color or not str(self.color).strip():
+            raise ValueError("El color de la categoria no puede estar vacio.")
+
+    def to_dict(self) -> Dict[str, Any]:  # Convierte a diccionario
+        """Devuelve un dict listo para guardar en JSON."""
+        return {
+            "name": self.name,
+            "color": self.color,
+        }
+
+    @staticmethod  # Metodo que no usa self
+    def from_dict(payload: Dict[str, Any]) -> "Category":  # Crea desde dict
+        """Crea una instancia valida desde un dict."""
+        return Category(
+            name=payload["name"],
+            color=payload.get("color", "cyan"),
+        )
+
+
+@dataclass(frozen=True)  # Hace la clase inmutable
 class ImportantDate:  # Modelo principal de fecha
     """Representa una fecha importante con datos basicos."""  # Resume la clase
 
@@ -62,6 +92,6 @@ class ImportantDate:  # Modelo principal de fecha
             name=payload["name"],  # Toma el nombre
             date=parse_datetime(payload["date"]),  # Toma la fecha y hora
             description=payload.get("description"),  # Toma la descripcion
-            group=payload.get("group", "General"),  # Toma el grupo o usa default
+            group=payload.get("group") or "General",  # Toma el grupo o usa default
             created_at=parse_date(payload["created_at"]) if payload.get("created_at") else date.today(),  # Toma creacion
         )  # Cierra la creacion
