@@ -68,7 +68,7 @@ class ImportantDate:  # Modelo principal de fecha
     date: datetime  # Fecha y hora del evento
     description: Optional[str] = None  # Texto opcional
     group: str = "General"  # Grupo de la fecha
-    created_at: date = field(default_factory=date.today)  # Fecha de creacion
+    created_at: datetime = field(default_factory=datetime.now)  # Fecha de creacion
 
     def __post_init__(self) -> None:  # Valida datos al crear
         """Valida los datos despues de crear la instancia."""  # Resume la validacion
@@ -82,7 +82,7 @@ class ImportantDate:  # Modelo principal de fecha
             "date": self.date.strftime(DATETIME_FORMAT),  # Guarda la fecha y hora
             "description": self.description,  # Guarda la descripcion
             "group": self.group,  # Guarda el grupo
-            "created_at": self.created_at.strftime(DATE_FORMAT),  # Guarda la creacion
+            "created_at": self.created_at.strftime(DATETIME_FORMAT),  # Guarda la creacion
         }  # Cierra el dict
 
     @staticmethod  # Metodo que no usa self
@@ -93,5 +93,13 @@ class ImportantDate:  # Modelo principal de fecha
             date=parse_datetime(payload["date"]),  # Toma la fecha y hora
             description=payload.get("description"),  # Toma la descripcion
             group=payload.get("group") or "General",  # Toma el grupo o usa default
-            created_at=parse_date(payload["created_at"]) if payload.get("created_at") else date.today(),  # Toma creacion
+            created_at=_parse_created_at(payload.get("created_at")),  # Toma creacion
         )  # Cierra la creacion
+
+
+def _parse_created_at(value: Optional[str]) -> datetime:
+    if not value:
+        return datetime.now()
+    if " " in value:
+        return parse_datetime(value)
+    return datetime.combine(parse_date(value), datetime.min.time())

@@ -113,13 +113,13 @@ def _ask_date_with_lists(today: date) -> Optional[datetime]:
     add_time = questionary.confirm("¿Quieres agregar hora/minuto?", default=False).ask()
     hour = minute = 0
     if add_time:
-        time_raw = questionary.text(
-            "Hora (HH:MM):",
-            validate=lambda text: True if re.match(r"^\d{2}:\d{2}$", text) else "Usa HH:MM",
-        ).ask()
-        if time_raw is None:
+        hour = _select_time_unit("Hora (HH):", 0, 23, default=12)
+        if hour is None:
             return None
-        hour, minute = map(int, time_raw.split(":"))
+        minute = _select_time_unit("Minuto (MM):", 0, 59, default=0)
+        if minute is None:
+            return None
+        console.print(f"[bold cyan]Hora seleccionada:[/bold cyan] [white]{hour:02d}:{minute:02d}[/white]")
 
     return datetime(int(selected_year), int(month_choice), int(selected_day), hour, minute)
 
@@ -140,6 +140,12 @@ def _select_color(default: str = "cyan") -> Optional[str]:
         if not custom_color:
             return None
         return custom_color.strip()
+    return selected
+
+
+def _select_time_unit(label: str, start: int, end: int, default: int) -> Optional[int]:
+    choices = [questionary.Choice(f"{value:02d}", value) for value in range(start, end + 1)]
+    selected = questionary.select(label, choices=choices, default=default).ask()
     return selected
 
 
@@ -313,7 +319,7 @@ def _list_dates(service: DateCounterService, include_past: bool) -> None:
         print("No hay fechas para mostrar.")
         return
 
-    _print_items(items, today, _get_category_map(service))
+    _print_items(items, datetime.now(), today, _get_category_map(service))
 
 
 def _list_by_category(service: DateCounterService) -> None:
@@ -342,7 +348,7 @@ def _list_by_category(service: DateCounterService) -> None:
         print("No hay fechas para mostrar.")
         return
 
-    _print_items(items, today, _get_category_map(service))
+    _print_items(items, datetime.now(), today, _get_category_map(service))
 
 
 def _show_next(service: DateCounterService) -> None:
@@ -352,7 +358,8 @@ def _show_next(service: DateCounterService) -> None:
         print("No hay fechas registradas.")
         return
 
-    _print_items([upcoming.item], date.today(), _get_category_map(service))
+    now_dt = datetime.now()
+    _print_items([upcoming.item], now_dt, now_dt.date(), _get_category_map(service))
 
 
 def _remove_date(service: DateCounterService) -> None:
@@ -491,7 +498,12 @@ def _manage_categories(service: DateCounterService) -> None:
             console.print(f"[bold red]{exc}[/bold red]")
 
 
-def _print_items(items: Iterable[ImportantDate], today: date, category_colors: Dict[str, str]) -> None:
+def _print_items(
+    items: Iterable[ImportantDate],
+    now: datetime,
+    today: date,
+    category_colors: Dict[str, str],
+) -> None:
     """Imprime fechas con detalle usando Rich."""
     table = Table(show_header=True, header_style="bold magenta", box=None)
     table.add_column("N", justify="right", style="dim")
@@ -503,12 +515,11 @@ def _print_items(items: Iterable[ImportantDate], today: date, category_colors: D
     for index, item in enumerate(items, start=1):
         event_date = _coerce_to_date(item.date)
         days_delta = (event_date - today).days
-        total_days = (event_date - item.created_at).days
-        if total_days <= 0:
-            total_days = 1
-
-        elapsed_days = total_days - days_delta
-        progress_percent = (elapsed_days / total_days) * 100
+        total_seconds = (item.date - item.created_at).total_seconds()
+        if total_seconds <= 0:
+            total_seconds = 1.0
+        elapsed_seconds = (now - item.created_at).total_seconds()
+        progress_percent = (elapsed_seconds / total_seconds) * 100
         progress_percent = max(min(progress_percent, 100.0), 0.0)
 
         if days_delta < 0:
