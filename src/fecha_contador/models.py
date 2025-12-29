@@ -20,13 +20,13 @@ def parse_date(value: str) -> date:  # Convierte texto a fecha
 
 def parse_datetime(value: str) -> datetime:  # Convierte texto a datetime
     """Convierte un string a datetime, soportando solo fecha o fecha y hora."""
-    try:
-        return datetime.strptime(value, DATETIME_FORMAT)
-    except ValueError:
+    try:  # Intenta parseo con fecha y hora completa
+        return datetime.strptime(value, DATETIME_FORMAT)  # Parsing estricto
+    except ValueError:  # Si falla, intenta formato solo fecha
         try:
-            # Intenta parsear como fecha y asume medianoche
+            # Si solo viene fecha, usa medianoche como hora
             return datetime.combine(parse_date(value), datetime.min.time())
-        except ValueError as exc:
+        except ValueError as exc:  # Error final si no cumple formatos
             raise ValueError(f"Formato invalido '{value}'. Se espera YYYY-MM-DD o YYYY-MM-DD HH:MM.") from exc
 
 
@@ -98,8 +98,9 @@ class ImportantDate:  # Modelo principal de fecha
 
 
 def _parse_created_at(value: Optional[str]) -> datetime:
-    if not value:
+    if not value:  # Si no hay fecha guardada, usa ahora
         return datetime.now()
-    if " " in value:
+    if " " in value:  # Si incluye hora, parsea completo
         return parse_datetime(value)
+    # Si solo hay fecha, agrega medianoche para convertir a datetime
     return datetime.combine(parse_date(value), datetime.min.time())
